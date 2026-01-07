@@ -1,4 +1,22 @@
 /* style.css */
+
+/* Sandbox Reset */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box; /* Prevents padding from breaking your layout widths */
+}
+
+html, body {
+    height: 100%;
+    -webkit-font-smoothing: antialiased; /* Makes fonts look smoother on Mac/iOS */
+}
+
+img, picture, video, canvas, svg {
+    display: block;
+    max-width: 100%; /* Prevents large images from breaking your page layout */
+}
+
 body {
     background-color: #f4f7f6;
     color: #333;
