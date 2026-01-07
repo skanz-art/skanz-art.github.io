@@ -49,3 +49,11 @@ a {
 a:hover {
     text-decoration: underline;
 }
+
+model-viewer {
+  background-color: #eee;
+  border-radius: 12px;
+  --progress-bar-color: #3498db; /* Changes the loading bar color */
+  display: block;
+  margin: 0 auto;
+}
