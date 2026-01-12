@@ -1,23 +1,29 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>011226_tiger</title>
-    <link rel="stylesheet" href="style.css">
+    <title>Blue Cube Experiment</title>
+    
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
+    
+    <style>
+        /* This ensures the 3D viewer takes up the full browser window */
+        body { 
+            margin: 0; 
+            background-color: #333; /* Dark grey background */
+            height: 100vh; 
+            overflow: hidden;
+        }
+        model-viewer { 
+            width: 100%; 
+            height: 100%; 
+        }
+    </style>
 </head>
 <body>
 
-    <header>
-        <h1>011226 Tiger</h1>
-    </header>
-
-    <main>
-        <p>Testing hosting a cube GLB from Google Cloud.</p>
-    </main>
-
-<model-viewer 
+    <model-viewer 
         src="https://storage.googleapis.com/skanz-art-assets/quickstart-folder/blue_cube_GLB.glb" 
         alt="A 3D Blue Cube"
         auto-rotate 
@@ -26,11 +32,5 @@
         ar>
     </model-viewer>
 
-
-    <footer>
-        <p>&copy; 2026 My Website</p>
-    </footer>
-
-    <script src="script.js"></script>
 </body>
 </html>
