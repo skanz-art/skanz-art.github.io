@@ -44,7 +44,7 @@
 
         // Camera setup
         const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
-        camera.position.z = 4; // Move camera back to see the model
+        camera.position.z = 5; // Moved back slightly (4 -> 5) to fit the grid better
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -60,8 +60,7 @@
         scene.add(dirLight);
 
         // 2. Logic Variables
-        let model;
-        let pivot; // Container group for rotation adjustments
+        const pivots = []; // Array to store the pivot groups for all 9 heads
         const mouse = new THREE.Vector2();
         const targetPos = new THREE.Vector3();
         const raycaster = new THREE.Raycaster();
@@ -73,16 +72,8 @@
         
         // ROTATION SENSITIVITY FIX: 
         // Move the plane much closer to the center (Z=0.5).
-        // The closer this plane is to the pivot (0,0,0), the wider the angle 
-        // the model will have to turn to look at the intersection point.
         mousePlane.position.z = 0.5; 
         scene.add(mousePlane);
-
-        // Create a Pivot Group
-        // We lookAt with the Pivot, but rotate the Model inside it.
-        pivot = new THREE.Group();
-        pivot.position.set(0, 0, 0);
-        scene.add(pivot);
 
         // 3. Load the GLB Model
         const loader = new GLTFLoader();
@@ -90,16 +81,32 @@
         const url = 'https://storage.googleapis.com/skanz-art-assets/quickstart-folder/NPChar-head.glb';
 
         loader.load(url, (gltf) => {
-            model = gltf.scene;
-            
-            // Center the model in the pivot
-            model.position.set(0, 0, 0); 
-            
-            // Note: Positive Z-axis faces the mouse cursor (default behavior).
-            // No extra rotation is applied here.
+            const baseModel = gltf.scene;
+            const spacing = 1.5; // Distance between heads
 
-            // Add model to pivot instead of scene directly
-            pivot.add(model);
+            // Create a 3x3 Grid
+            // x loops from -1 (left) to 1 (right)
+            // y loops from -1 (bottom) to 1 (top)
+            for (let x = -1; x <= 1; x++) {
+                for (let y = -1; y <= 1; y++) {
+                    
+                    // Create a pivot for this specific grid cell
+                    const pivot = new THREE.Group();
+                    pivot.position.set(x * spacing, y * spacing, 0);
+                    
+                    // Clone the loaded model so we have a unique instance
+                    const instance = baseModel.clone();
+                    
+                    // Note: Positive Z-axis faces the mouse cursor (default behavior).
+                    // No extra rotation is applied to the instance.
+
+                    pivot.add(instance);
+                    scene.add(pivot);
+                    
+                    // Add this pivot to our array so we can animate it later
+                    pivots.push(pivot);
+                }
+            }
             
             // Hide loading text
             document.getElementById('loading').style.display = 'none';
@@ -133,15 +140,17 @@
             // Find where the ray hits our invisible plane
             const intersects = raycaster.intersectObject(mousePlane);
 
-            if (intersects.length > 0 && model) {
+            if (intersects.length > 0 && pivots.length > 0) {
                 // Get the point in 3D space where the mouse is hovering
                 const point = intersects[0].point;
                 
                 // SMOOTHING (Linear Interpolation)
                 targetPos.lerp(point, 0.1);
 
-                // Pivot looks at the target. 
-                pivot.lookAt(targetPos);
+                // Update ALL pivots in the grid
+                pivots.forEach(pivot => {
+                    pivot.lookAt(targetPos);
+                });
             }
 
             renderer.render(scene, camera);
