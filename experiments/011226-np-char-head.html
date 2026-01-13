@@ -1,89 +1,153 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>NPChar Head — Model Preview</title>
-  <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
-  <style>
-    html,body{
-      height:100%;
-      margin:0;
-      background:
-        radial-gradient(600px circle at 10% 20%, rgba(117,200,255,0.06), transparent 20%),
-        radial-gradient(500px circle at 85% 70%, rgba(255,150,150,0.04), transparent 20%),
-        linear-gradient(180deg, #141414 0%, #222 50%, #1a1a1a 100%);
-      color:#fff;
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial;
-    }
-    .container{width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:1rem;box-sizing:border-box}
-    .card{width:100%;max-width:1000px;height:80vh;background:transparent;border-radius:0;padding:0;box-sizing:border-box;display:flex;flex-direction:column;align-items:stretch;justify-content:center;}
-    h1{font-size:1rem;margin:0 0 8px 0;text-align:center;opacity:0.95}
-    model-viewer{flex:1 1 auto;width:100%;height:100%;border-radius:0;background:transparent;outline:none;--poster-color:transparent}
-    .meta{font-size:0.9rem;text-align:center;margin-top:10px;opacity:.85}
-    a{color:#74b9ff}
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Z-Axis Tracking Prototype</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #1a1a1a; }
+        canvas { display: block; }
+        #loading {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            color: white; font-family: sans-serif;
+            pointer-events: none;
+            background: rgba(0,0,0,0.5);
+            padding: 10px 20px;
+            border-radius: 4px;
+            user-select: none;
+        }
+    </style>
+    <!-- Import Map: Essential for GLTFLoader to resolve 'three' internally -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
 </head>
 <body>
-  <div class="container">
-    <div class="card">
-      <h1>NPChar Head (GLB)</h1>
-      <model-viewer
-        id="viewer"
-        src="https://storage.googleapis.com/skanz-art-assets/quickstart-folder/NPChar-head.glb"
-        alt="NPChar head model"
-        camera-controls
-        exposure="1"
-        shadow-intensity="0.4"
-        ar
-        ar-modes="webxr"
-        environment-image="neutral"
-        ios-src=""
-      >
-      </model-viewer>
-      <div class="meta">Use mouse/touch to orbit.</div>
-    </div>
-  </div>
 
-  <script>
-  (function () {
-    const mv = document.getElementById('viewer');
-    if (!mv) return;
+    <div id="loading">Loading Model...</div>
 
-    // Use pointer events (works for mouse & touch)
-    mv.removeAttribute('auto-rotate');
+    <script type="module">
+        // UPDATED: Using full URLs here bypasses Vite's local package resolution logic,
+        // preventing errors if you haven't run 'npm install three'.
+        import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+        import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
 
-    const parse = (s = '0deg 20deg 2m') => {
-      const [az='0deg', el='20deg', r='2m'] = s.split(' ');
-      return { az: parseFloat(az), el: parseFloat(el), r };
-    };
-    const initial = parse(mv.getAttribute('camera-orbit'));
-    let target = { az: initial.az, el: initial.el };
-    let current = { az: initial.az, el: initial.el };
+        // 1. Scene Setup
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x222222);
 
-    function onPointer(e) {
-      const rect = mv.getBoundingClientRect();
-      const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-      const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
-      // Horizontal: ±40deg, Vertical: ±15deg around initial.el
-      target.az = (x - 0.5) * 80;
-      target.el = initial.el + (0.5 - y) * 30;
-    }
+        // Camera setup
+        const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.z = 4; // Move camera back to see the model
 
-    mv.addEventListener('pointermove', onPointer);
-    mv.addEventListener('pointerleave', () => {
-      target.az = initial.az;
-      target.el = initial.el;
-    });
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.body.appendChild(renderer.domElement);
 
-    function step() {
-      current.az += (target.az - current.az) * 0.12;
-      current.el += (target.el - current.el) * 0.12;
-      mv.setAttribute('camera-orbit', `${current.az.toFixed(2)}deg ${current.el.toFixed(2)}deg ${initial.r}`);
-      requestAnimationFrame(step);
-    }
-    step();
-  })();
-  </script>
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 1);
+        scene.add(ambientLight);
+        
+        const dirLight = new THREE.DirectionalLight(0xffffff, 2);
+        dirLight.position.set(2, 5, 5);
+        scene.add(dirLight);
+
+        // 2. Logic Variables
+        let model;
+        let pivot; // Container group for rotation adjustments
+        const mouse = new THREE.Vector2();
+        const targetPos = new THREE.Vector3();
+        const raycaster = new THREE.Raycaster();
+        
+        // Create an invisible plane to catch the mouse ray
+        const planeGeo = new THREE.PlaneGeometry(20, 20);
+        const planeMat = new THREE.MeshBasicMaterial({ visible: false }); 
+        const mousePlane = new THREE.Mesh(planeGeo, planeMat);
+        
+        // ROTATION SENSITIVITY FIX: 
+        // Move the plane much closer to the center (Z=0.5).
+        // The closer this plane is to the pivot (0,0,0), the wider the angle 
+        // the model will have to turn to look at the intersection point.
+        mousePlane.position.z = 0.5; 
+        scene.add(mousePlane);
+
+        // Create a Pivot Group
+        // We lookAt with the Pivot, but rotate the Model inside it.
+        pivot = new THREE.Group();
+        pivot.position.set(0, 0, 0);
+        scene.add(pivot);
+
+        // 3. Load the GLB Model
+        const loader = new GLTFLoader();
+        // Using the URL provided in your code
+        const url = 'https://storage.googleapis.com/skanz-art-assets/quickstart-folder/NPChar-head.glb';
+
+        loader.load(url, (gltf) => {
+            model = gltf.scene;
+            
+            // Center the model in the pivot
+            model.position.set(0, 0, 0); 
+            
+            // Note: Positive Z-axis faces the mouse cursor (default behavior).
+            // No extra rotation is applied here.
+
+            // Add model to pivot instead of scene directly
+            pivot.add(model);
+            
+            // Hide loading text
+            document.getElementById('loading').style.display = 'none';
+
+        }, undefined, (error) => {
+            console.error('An error happened:', error);
+            document.getElementById('loading').textContent = 'Error loading model.';
+        });
+
+        // 4. Mouse Event Listener
+        window.addEventListener('mousemove', (event) => {
+            // Normalize mouse coordinates to -1 to +1
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        });
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // 5. Animation Loop
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Logic: Cast a ray from camera through mouse position
+            raycaster.setFromCamera(mouse, camera);
+
+            // Find where the ray hits our invisible plane
+            const intersects = raycaster.intersectObject(mousePlane);
+
+            if (intersects.length > 0 && model) {
+                // Get the point in 3D space where the mouse is hovering
+                const point = intersects[0].point;
+                
+                // SMOOTHING (Linear Interpolation)
+                targetPos.lerp(point, 0.1);
+
+                // Pivot looks at the target. 
+                pivot.lookAt(targetPos);
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+    </script>
 </body>
 </html>
