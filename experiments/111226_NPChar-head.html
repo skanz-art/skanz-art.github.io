@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>NPChar Head — Model Preview</title>
+  <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
+  <style>
+    html,body{
+      height:100%;
+      margin:0;
+      background:
+        radial-gradient(600px circle at 10% 20%, rgba(117,200,255,0.06), transparent 20%),
+        radial-gradient(500px circle at 85% 70%, rgba(255,150,150,0.04), transparent 20%),
+        linear-gradient(180deg, #141414 0%, #222 50%, #1a1a1a 100%);
+      color:#fff;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial;
+    }
+    .container{width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:1rem;box-sizing:border-box}
+    .card{width:100%;max-width:1000px;height:80vh;background:transparent;border-radius:0;padding:0;box-sizing:border-box;display:flex;flex-direction:column;align-items:stretch;justify-content:center;}
+    h1{font-size:1rem;margin:0 0 8px 0;text-align:center;opacity:0.95}
+    model-viewer{flex:1 1 auto;width:100%;height:100%;border-radius:0;background:transparent;outline:none;--poster-color:transparent}
+    .meta{font-size:0.9rem;text-align:center;margin-top:10px;opacity:.85}
+    a{color:#74b9ff}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1>NPChar Head (GLB)</h1>
+      <model-viewer
+        src="https://storage.googleapis.com/skanz-art-assets/quickstart-folder/NPChar-head.glb"
+        alt="NPChar head model"
+        camera-controls
+        auto-rotate
+        exposure="1"
+        shadow-intensity="0.4"
+        ar
+        ar-modes="webxr"
+        environment-image="neutral"
+        ios-src=""
+      >
+      </model-viewer>
+      <div class="meta">Use mouse/touch to orbit.</div>
+    </div>
+  </div>
+</body>
+</html>
