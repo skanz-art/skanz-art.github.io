@@ -1,0 +1,26 @@
+{
+  "name": "skanz-art.github.io",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/skanz-art/skanz-art.github.io.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/skanz-art/skanz-art.github.io/issues"
+  },
+  "homepage": "https://github.com/skanz-art/skanz-art.github.io#readme",
+  "devDependencies": {
+    "vite": "^7.3.1"
+  }
+}

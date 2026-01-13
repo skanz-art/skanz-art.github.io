@@ -29,10 +29,10 @@
     <div class="card">
       <h1>NPChar Head (GLB)</h1>
       <model-viewer
+        id="viewer"
         src="https://storage.googleapis.com/skanz-art-assets/quickstart-folder/NPChar-head.glb"
         alt="NPChar head model"
         camera-controls
-        auto-rotate
         exposure="1"
         shadow-intensity="0.4"
         ar
@@ -44,5 +44,46 @@
       <div class="meta">Use mouse/touch to orbit.</div>
     </div>
   </div>
+
+  <script>
+  (function () {
+    const mv = document.getElementById('viewer');
+    if (!mv) return;
+
+    // Use pointer events (works for mouse & touch)
+    mv.removeAttribute('auto-rotate');
+
+    const parse = (s = '0deg 20deg 2m') => {
+      const [az='0deg', el='20deg', r='2m'] = s.split(' ');
+      return { az: parseFloat(az), el: parseFloat(el), r };
+    };
+    const initial = parse(mv.getAttribute('camera-orbit'));
+    let target = { az: initial.az, el: initial.el };
+    let current = { az: initial.az, el: initial.el };
+
+    function onPointer(e) {
+      const rect = mv.getBoundingClientRect();
+      const x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      const y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+      // Horizontal: ±40deg, Vertical: ±15deg around initial.el
+      target.az = (x - 0.5) * 80;
+      target.el = initial.el + (0.5 - y) * 30;
+    }
+
+    mv.addEventListener('pointermove', onPointer);
+    mv.addEventListener('pointerleave', () => {
+      target.az = initial.az;
+      target.el = initial.el;
+    });
+
+    function step() {
+      current.az += (target.az - current.az) * 0.12;
+      current.el += (target.el - current.el) * 0.12;
+      mv.setAttribute('camera-orbit', `${current.az.toFixed(2)}deg ${current.el.toFixed(2)}deg ${initial.r}`);
+      requestAnimationFrame(step);
+    }
+    step();
+  })();
+  </script>
 </body>
 </html>
