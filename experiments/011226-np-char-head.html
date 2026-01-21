@@ -5,17 +5,79 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Z-Axis Tracking Prototype</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #1a1a1a; }
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            font-family: sans-serif;
+            
+            /* MESH GRADIENT SETUP */
+            background: linear-gradient(-45deg, #B9D0F3, #F4C8A7, white);
+            background-size: 400% 400%;
+            animation: gradientBG 10s ease infinite;
+        }
+
+        /* Ambient Animation Keyframes */
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
         canvas { display: block; }
+        
         #loading {
             position: absolute; top: 50%; left: 50%;
             transform: translate(-50%, -50%);
-            color: white; font-family: sans-serif;
+            color: #333; 
             pointer-events: none;
-            background: rgba(0,0,0,0.5);
+            background: rgba(255,255,255,0.5); 
             padding: 10px 20px;
             border-radius: 4px;
             user-select: none;
+        }
+
+        /* Glossy Button Style */
+        #more-btn {
+            display: none; /* Hidden until model loads */
+            position: absolute;
+            /* Initial Position: Centered Bottom */
+            bottom: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            
+            padding: 15px 50px;
+            font-size: 20px;
+            font-weight: 800;
+            text-transform: uppercase;
+            color: white;
+            background: linear-gradient(to bottom, #4facfe 0%, #00f2fe 100%);
+            
+            border: none;
+            
+            border-radius: 50px;
+            box-shadow: 
+                0 4px 15px rgba(0,0,0,0.1), 
+                inset 0 2px 5px rgba(255,255,255,0.4);
+            cursor: pointer;
+            z-index: 10;
+            
+            transition: filter 0.2s ease;
+            
+            letter-spacing: 2px;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+            white-space: nowrap;
+        }
+
+        #more-btn:hover {
+            filter: hue-rotate(45deg) brightness(1.1);
+            
+            box-shadow: 
+                0 8px 25px rgba(0,0,0,0.2), 
+                inset 0 2px 5px rgba(255,255,255,0.6);
+        }
+
+        #more-btn:active {
+            filter: brightness(0.9);
         }
     </style>
     <!-- Import Map: Essential for GLTFLoader to resolve 'three' internally -->
@@ -31,22 +93,23 @@
 <body>
 
     <div id="loading">Loading Model...</div>
+    <button id="more-btn">MORE!</button>
 
     <script type="module">
-        // UPDATED: Using full URLs here bypasses Vite's local package resolution logic,
-        // preventing errors if you haven't run 'npm install three'.
         import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
         import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
 
         // 1. Scene Setup
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x222222);
+        scene.background = null;
+
+        const clock = new THREE.Clock(); // Needed for animation updates
 
         // Camera setup
-        const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
-        camera.position.z = 5; // Moved back slightly (4 -> 5) to fit the grid better
+        const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.z = 4;
 
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
         document.body.appendChild(renderer.domElement);
@@ -60,94 +123,224 @@
         scene.add(dirLight);
 
         // 2. Logic Variables
-        const pivots = []; // Array to store the pivot groups for all 9 heads
+        let baseModel = null;
+        let baseAnimations = []; // Store animations from the loaded GLTF
+        
+        let headCount = 1;
+        let pivots = []; 
+        let mixers = []; // Array to hold AnimationMixers for each clone
+        let clickCount = 0;
+        const MAX_CLICKS = 8; // 8 clicks = 256 heads
+        
+        const headsContainer = new THREE.Group();
+        scene.add(headsContainer);
+
         const mouse = new THREE.Vector2();
         const targetPos = new THREE.Vector3();
         const raycaster = new THREE.Raycaster();
         
-        // Create an invisible plane to catch the mouse ray
-        const planeGeo = new THREE.PlaneGeometry(20, 20);
+        // Tracking Plane
+        const planeGeo = new THREE.PlaneGeometry(100, 100); 
         const planeMat = new THREE.MeshBasicMaterial({ visible: false }); 
         const mousePlane = new THREE.Mesh(planeGeo, planeMat);
-        
-        // ROTATION SENSITIVITY FIX: 
-        // Move the plane much closer to the center (Z=0.5).
         mousePlane.position.z = 0.5; 
         scene.add(mousePlane);
 
-        // 3. Load the GLB Model
-        const loader = new GLTFLoader();
-        // Using the URL provided in your code
-        const url = 'https://storage.googleapis.com/skanz-art-assets/quickstart-folder/NPChar-head.glb';
-
-        loader.load(url, (gltf) => {
-            const baseModel = gltf.scene;
-            const spacing = 1.5; // Distance between heads
-
-            // Create a 3x3 Grid
-            // x loops from -1 (left) to 1 (right)
-            // y loops from -1 (bottom) to 1 (top)
-            for (let x = -1; x <= 1; x++) {
-                for (let y = -1; y <= 1; y++) {
-                    
-                    // Create a pivot for this specific grid cell
-                    const pivot = new THREE.Group();
-                    pivot.position.set(x * spacing, y * spacing, 0);
-                    
-                    // Clone the loaded model so we have a unique instance
-                    const instance = baseModel.clone();
-                    
-                    // Note: Positive Z-axis faces the mouse cursor (default behavior).
-                    // No extra rotation is applied to the instance.
-
-                    pivot.add(instance);
-                    scene.add(pivot);
-                    
-                    // Add this pivot to our array so we can animate it later
-                    pivots.push(pivot);
-                }
+        // 3. Helper Functions
+        
+        function regenerateGrid() {
+            // Clear existing heads
+            while(headsContainer.children.length > 0){ 
+                headsContainer.remove(headsContainer.children[0]); 
             }
             
-            // Hide loading text
-            document.getElementById('loading').style.display = 'none';
+            // Clear arrays
+            pivots = [];
+            mixers = []; // Reset mixers
 
+            if (!baseModel) return;
+
+            // Calculate grid
+            const cols = Math.ceil(Math.sqrt(headCount));
+            const rows = Math.ceil(headCount / cols);
+            
+            const spacing = 1.5;
+            const totalWidth = (cols - 1) * spacing;
+            const totalHeight = (rows - 1) * spacing;
+
+            for (let i = 0; i < headCount; i++) {
+                const c = i % cols;
+                const r = Math.floor(i / cols);
+                const x = (c * spacing) - (totalWidth / 2);
+                const y = -(r * spacing) + (totalHeight / 2);
+
+                const pivot = new THREE.Group();
+                pivot.position.set(x, y, 0);
+                
+                // Clone the model
+                const instance = baseModel.clone();
+                
+                // --- ANIMATION LOGIC START ---
+                // Create a mixer for this specific instance
+                const mixer = new THREE.AnimationMixer(instance);
+                
+                // If the GLTF had animations, play them with random offset
+                if (baseAnimations && baseAnimations.length > 0) {
+                    baseAnimations.forEach((clip) => {
+                        const action = mixer.clipAction(clip);
+                        
+                        // Randomize start time so they aren't synchronized
+                        // action.time sets the playback cursor to a random spot
+                        action.time = Math.random() * clip.duration;
+                        
+                        action.play();
+                    });
+                }
+                
+                mixers.push(mixer);
+                // --- ANIMATION LOGIC END ---
+
+                pivot.add(instance);
+                
+                headsContainer.add(pivot);
+                pivots.push(pivot);
+            }
+
+            // Adjust camera to fit all heads
+            const targetCamZ = 4 + (rows * 0.8);
+            camera.position.z = targetCamZ;
+        }
+
+        function moveButtonRandomly() {
+            const btn = document.getElementById('more-btn');
+            
+            const randomX = 10 + Math.random() * 80;
+            const randomY = 10 + Math.random() * 80;
+
+            btn.style.bottom = 'auto'; 
+            btn.style.left = randomX + '%';
+            btn.style.top = randomY + '%';
+            
+            btn.style.transform = 'translate(-50%, -50%)';
+        }
+
+        function triggerExplosion() {
+            const btn = document.getElementById('more-btn');
+            btn.style.display = 'none'; // Hide button while exploding
+
+            // Fast interval to remove heads one by one
+            const interval = setInterval(() => {
+                if (pivots.length === 0) {
+                    clearInterval(interval);
+                    resetGame();
+                    return;
+                }
+
+                const randomIndex = Math.floor(Math.random() * pivots.length);
+                const targetPivot = pivots[randomIndex];
+
+                // Remove from Three.js scene
+                headsContainer.remove(targetPivot);
+                
+                // Remove from our array
+                pivots.splice(randomIndex, 1);
+                
+                // Also remove the corresponding mixer to stop calculating it
+                mixers.splice(randomIndex, 1);
+
+            }, 20); 
+        }
+
+        function resetGame() {
+            headCount = 1;
+            clickCount = 0;
+            regenerateGrid();
+            
+            const btn = document.getElementById('more-btn');
+            btn.innerText = "MORE!";
+            btn.style.background = "linear-gradient(to bottom, #4ade80 0%, #16a34a 100%)";
+            btn.style.display = 'block';
+            
+            btn.style.top = 'auto';
+            btn.style.bottom = '50px';
+            btn.style.left = '50%';
+            btn.style.transform = 'translateX(-50%)';
+        }
+
+        // 4. Load Model
+        const loader = new GLTFLoader();
+        // UPDATED: Using the new animated GLTF URL
+        const url = 'https://storage.googleapis.com/skanz-art-assets/quickstart-folder/012126_NPCharHead_Interactive_GLTF_3.gltf';
+
+        loader.load(url, (gltf) => {
+            baseModel = gltf.scene;
+            baseAnimations = gltf.animations; // Capture animations from file
+
+            regenerateGrid();
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('more-btn').style.display = 'block';
         }, undefined, (error) => {
-            console.error('An error happened:', error);
+            console.error(error);
             document.getElementById('loading').textContent = 'Error loading model.';
         });
 
-        // 4. Mouse Event Listener
+        // 5. Interaction Logic
+        const btn = document.getElementById('more-btn');
+        btn.addEventListener('click', () => {
+            
+            if (btn.innerText === "DESTROY!") {
+                triggerExplosion();
+                return;
+            }
+
+            headCount *= 2;
+            clickCount++;
+            regenerateGrid();
+            moveButtonRandomly();
+
+            if (clickCount >= MAX_CLICKS) {
+                btn.innerText = "DESTROY!";
+                btn.style.background = "linear-gradient(to bottom, #ff416c, #ff4b2b)";
+            }
+        });
+
         window.addEventListener('mousemove', (event) => {
-            // Normalize mouse coordinates to -1 to +1
             mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
             mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
         });
 
-        // Handle window resize
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        // 5. Animation Loop
+        // 6. Animation
         function animate() {
             requestAnimationFrame(animate);
 
-            // Logic: Cast a ray from camera through mouse position
-            raycaster.setFromCamera(mouse, camera);
+            // Get time delta for smooth animation playback
+            const delta = clock.getDelta();
 
-            // Find where the ray hits our invisible plane
+            // Update all mixers (play animations)
+            if (mixers.length > 0) {
+                mixers.forEach(mixer => mixer.update(delta));
+            }
+
+            // ANIMATED LIGHTING
+            const time = Date.now() * 0.001; 
+            
+            dirLight.position.x = Math.sin(time * 0.5) * 4; 
+            dirLight.position.y = 5 + Math.cos(time * 0.3) * 2; 
+            dirLight.position.z = 4 + Math.sin(time * 0.4) * 2; 
+
+            raycaster.setFromCamera(mouse, camera);
             const intersects = raycaster.intersectObject(mousePlane);
 
             if (intersects.length > 0 && pivots.length > 0) {
-                // Get the point in 3D space where the mouse is hovering
                 const point = intersects[0].point;
-                
-                // SMOOTHING (Linear Interpolation)
                 targetPos.lerp(point, 0.1);
 
-                // Update ALL pivots in the grid
                 pivots.forEach(pivot => {
                     pivot.lookAt(targetPos);
                 });
